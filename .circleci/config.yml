@@ -49,6 +49,12 @@ workflows:
   btd:
     jobs:
       - flow
+      - hold:
+          type: approval
+          requires: 
+              - flow
+          
       - downstream:
           requires:
             - flow
+            - hold
