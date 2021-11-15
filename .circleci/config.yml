@@ -49,7 +49,7 @@ workflows:
   btd:
     jobs:
       - flow
-      - hold:
+      - approval_to_job:
           type: approval
           requires: 
               - flow
@@ -57,4 +57,4 @@ workflows:
       - downstream:
           requires:
             - flow
-            - hold
+            - approval_to_job
