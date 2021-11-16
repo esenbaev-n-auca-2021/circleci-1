@@ -1,25 +1,67 @@
 version: 2.1
 orbs:
-  node: circleci/node@3.0.0
-  slack: circleci/slack@3.4.2
+  slack: circleci/slack@4.1.4
 jobs:
-  build-test-and-notify:
-    executor:
-      name: node/default
+  build:
+    docker:
+      - image: cimg/python:3.7
     steps:
       - checkout
-      - run:
-          name: Install dependencies
-          command: npm install
-      - run: npm test
-      - slack/notify:
-          color: "#42e2f4"
-          mentions: "yemiwebby,"
-          message: A custom message to notify the channel about the latest build
-      - slack/status:
-          fail_only: true
-          mentions: "yemiwebby"
-workflows:
-  build-and-notify:
-    jobs:
-      - build-test-and-notify
+      - setup_remote_docker
+
+      - slack/notify: // OPTION1: this one works
+          event: pass
+          channel: idrottens-notify
+          custom: |
+                {
+  "text": "",
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Deployment Successful! :tada:",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        {
+          "type": "mrkdwn",
+          "text": "*Project*:\\n$CIRCLE_PROJECT_REPONAME"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*When*:\\n$(date +'%m/%d/%Y %T')"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Environment*:\\n$CIRCLE_BRANCH"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Tag*:\\n$CIRCLE_TAG"
+        }
+      ],
+      "accessory": {
+        "type": "image",
+        "image_url": "https://assets.brandfolder.com/otz5mn-bw4j2w-6jzqo8/original/circle-logo-badge-black.png",
+        "alt_text": "CircleCI logo"
+      }
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": {
+            "type": "plain_text",
+            "text": "View Job"
+          },
+          "url": "${CIRCLE_BUILD_URL}"
+        }
+      ]
+    }
+  ]
+}
