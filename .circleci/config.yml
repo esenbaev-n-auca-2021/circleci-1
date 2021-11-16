@@ -1,67 +1,49 @@
 version: 2.1
-orbs:
-  slack: circleci/slack@4.1.4
-jobs:
-  build:
-    docker:
-      - image: cimg/python:3.7
-    steps:
-      - checkout
-      - setup_remote_docker
 
-      - slack/notify: // OPTION1: this one works
+orbs:
+  slack: circleci/slack@4.3.0
+
+commands:
+  notify_slack_error:
+    steps:
+      - slack/notify:
+          event: fail
+          template: basic_fail_1
+
+  notify_slack_pass:
+    steps:
+      - slack/notify:
           event: pass
-          channel: idrottens-notify
-          custom: |
-                {
-  "text": "",
-  "blocks": [
-    {
-      "type": "header",
-      "text": {
-        "type": "plain_text",
-        "text": "Deployment Successful! :tada:",
-        "emoji": true
-      }
-    },
-    {
-      "type": "section",
-      "fields": [
-        {
-          "type": "mrkdwn",
-          "text": "*Project*:\\n$CIRCLE_PROJECT_REPONAME"
-        },
-        {
-          "type": "mrkdwn",
-          "text": "*When*:\\n$(date +'%m/%d/%Y %T')"
-        },
-        {
-          "type": "mrkdwn",
-          "text": "*Environment*:\\n$CIRCLE_BRANCH"
-        },
-        {
-          "type": "mrkdwn",
-          "text": "*Tag*:\\n$CIRCLE_TAG"
-        }
-      ],
-      "accessory": {
-        "type": "image",
-        "image_url": "https://assets.brandfolder.com/otz5mn-bw4j2w-6jzqo8/original/circle-logo-badge-black.png",
-        "alt_text": "CircleCI logo"
-      }
-    },
-    {
-      "type": "actions",
-      "elements": [
-        {
-          "type": "button",
-          "text": {
-            "type": "plain_text",
-            "text": "View Job"
-          },
-          "url": "${CIRCLE_BUILD_URL}"
-        }
-      ]
-    }
-  ]
-}
+          template: basic_success_1
+          
+jobs:
+  deploy:
+    docker:
+      - image: circleci/node:12.18.0
+    resource_class: medium
+    steps:
+      - trigger_slack_notification
+      - checkout
+      - run:
+          name: Install packages
+          command: npm install
+      - run:
+          name: Installing Firebase-Tools
+          command: npm install firebase-tools
+      - run:
+          name: Firebase Set Project Id
+          command: ./node_modules/.bin/firebase use default --token $FIREBASE_DEVELOP_DEPLOY_TOKEN
+      - run:
+          name: Build App
+          command: npm run build:app
+      - run:
+          name: Deploy All
+          command: ./node_modules/.bin/firebase deploy --token $FIREBASE_DEVELOP_DEPLOY_TOKEN --only functions,hosting,storage --force
+      - notify_slack_error
+      - notify_slack_pass
+
+workflows:
+  Firebase_Build_Deploy:
+    jobs:
+      - deploy:
+        
