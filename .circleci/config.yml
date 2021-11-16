@@ -1,60 +1,40 @@
-# Note that the following stanza uses CircleCI 2.1 to make use of a Reusable Executor
-# This allows defining a docker image to reuse across jobs.
-# visit https://circleci.com/docs/2.0/reusing-config/#authoring-reusable-executors to learn more.
-
-version: 2.1
-
-executors:
-  my-executor:
+version: 2.1orbs:
+  heroku: circleci/heroku@0.0.10
+  slack: circleci/slack@4.1jobs:
+  build:
     docker:
-      - image: buildpack-deps:jessie
-        auth:
-          username: mydockerhub-user
-          password: $DOCKERHUB_PASSWORD  # context / project UI env-var reference
-    working_directory: /tmp
-
-jobs:
-  flow:
-    executor: my-executor
+      - image: circleci/node:10.16.3
+    working_directory: ~/search-yc-top-companies
     steps:
-      - run: mkdir -p workspace
-      - run: echo "Hello, world!" > workspace/echo-output
-
-      # Persist the specified paths (workspace/echo-output) into the workspace for use in downstream job.
-      - persist_to_workspace:
-          # Must be an absolute path, or relative path from working_directory. This is a directory on the container which is
-          # taken to be the root directory of the workspace.
-          root: workspace
-          # Must be relative path from root
-          paths:
-            - echo-output
-
-  downstream:
-    executor: my-executor
+      - checkout
+      # install dependencies
+      - run:
+          name: Install Dependencies
+          command: npm install
+      - run:
+          name: Build
+          command: npm run build
+  status:
+    docker:
+      - image: cimg/base:stable
     steps:
-      - attach_workspace:
-          # Must be absolute path or relative path from working_directory
-          at: /tmp/workspace
-
-      - run: |
-          if [[ `cat /tmp/workspace/echo-output` == "Hello, world!" ]]; then
-            echo "It worked!";
-          else
-            echo "Nope!"; exit 1
-          fi
-
-workflows:
-  version: 2
-
-  btd:
+      - run: echo "Sending status"
+      - slack/notify:
+          event: fail
+          template: basic_fail_1
+      - slack/notify:
+          event: pass
+          template: success_tagged_deploy_1workflows:
+  heroku_deploy:
     jobs:
-      - flow
-      - approval_to_job:
-          type: approval
-          requires: 
-              - flow
-          
-      - downstream:
+      - build
+      - heroku/deploy-via-git: # Use the pre-configured job, deploy-via-git
           requires:
-            - flow
-            - approval_to_job
+            - build
+          filters:
+            branches:
+              only: main
+      - status:
+          requires:
+            - build
+            - heroku/deploy-via-git
